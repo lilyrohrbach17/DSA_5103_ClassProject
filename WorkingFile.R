@@ -17,6 +17,8 @@ library(outliers)
 train <- read_csv('fraudTrain.csv')
 test <- read_csv('fraudTest.csv')
 
+attach(train)
+
 #Creat a subset of train that only has numeric columns
 num_cols <- unlist(lapply(train, is.numeric)) 
 numericTrain <- train[ , num_cols]
@@ -31,6 +33,11 @@ meltedCorMat$value <- round(meltedCorMat$value, 3)
 
 #Notes: Fraud appears to be most correlated with amount in regards
 #to the numeric variables
+
+#From the discussions on Kaggle, a few new features could be created with 
+#better correlation: Time Since Last Transaction per card, Frequency of 
+#transactions in last X days, and encoding a transaction as abnormal
+#based on time of day
 ggplot(data = as.data.frame(meltedCorMat), aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile() +
   geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + 
@@ -44,5 +51,19 @@ ggplot(data = as.data.frame(meltedCorMat), aes(x=Var1, y=Var2, fill=value)) +
     panel.background = element_blank(),
     plot.title = element_text(hjust = 0.5),
     axis.ticks = element_blank())
+
+
+#Convert Fraud to Categorical and get subset of only the
+#fradulent transactions
+train$is_fraud <- as.factor(train$is_fraud)
+trainFraud <- train[train$is_fraud == 1, ]
+
+
+ggplot(data = trainFraud, aes(x=category)) +
+  geom_bar()  +
+  labs(title = "Distribution of Fradulent Transactions by Category")
+
+
+
 
 
