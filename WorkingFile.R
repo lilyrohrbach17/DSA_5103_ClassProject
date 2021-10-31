@@ -58,12 +58,46 @@ ggplot(data = as.data.frame(meltedCorMat), aes(x=Var1, y=Var2, fill=value)) +
 train$is_fraud <- as.factor(train$is_fraud)
 trainFraud <- train[train$is_fraud == 1, ]
 
-
+#Plot of Fraud by Category
 ggplot(data = trainFraud, aes(x=category)) +
   geom_bar()  +
-  labs(title = "Distribution of Fradulent Transactions by Category")
+  labs(title = "Distribution of Fradulent Transactions by Category") + 
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.ticks = element_blank())
 
+#Plot of Fraud by State
+#Note: Probably want to normalize this by dividing by the 
+#state population if available
+ggplot(data = trainFraud, aes(x=state)) +
+  geom_bar()  +
+  labs(title = "Distribution of Fradulent Transactions by State") + 
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.ticks = element_blank())
 
-
+#Plot of Fraud by Gender 
+#Note: Almost Equal. Male is slightly higher
+ggplot(data = trainFraud, aes(x=gender)) +
+  geom_bar()  +
+  labs(title = "Distribution of Fradulent Transactions by Gender") + 
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    plot.title = element_text(hjust = 0.5),
+    axis.ticks = element_blank())
 
 
