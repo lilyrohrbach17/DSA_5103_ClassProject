@@ -100,4 +100,92 @@ ggplot(data = trainFraud, aes(x=gender)) +
     plot.title = element_text(hjust = 0.5),
     axis.ticks = element_blank())
 
+#Boxplots for Outlier Identification
+ggplot(train, aes(x = is_fraud, y = dob)) +
+  geom_boxplot()
+#Appears to be an outlier for real transactions based on ewarlier DOB
+
+ggplot(train, aes(x = gender, y = amt, color = is_fraud)) +
+  geom_boxplot()
+#Both males and females tend to have similar spending habits with high value outliers 
+
+ggplot(train, aes(x = merch_lat, y = lat, color = is_fraud)) +
+  geom_boxplot()
+#Similar latitudes between the customer and the merchant for
+#fraud and real transactions with some higher outliers and a few lower 
+
+ggplot(train, aes(x = merch_long, y = long, color = is_fraud)) +
+  geom_boxplot()
+#Similar longitudes between the customer and the merchant for
+#fraud and real transactions with some lower outliers
+
+#Outlier elimination
+#merch_long
+Q <- quantile(train$merch_long, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$merch_long)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, merch_long > 
+                      (Q[1] - 1.5*iqr) & merch_long < (Q[2]+1.5*iqr))
+#long
+Q <- quantile(train$long, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$long)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, long > 
+                      (Q[1] - 1.5*iqr) & long < (Q[2]+1.5*iqr))
+#merch_lat
+Q <- quantile(train$merch_lat, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$merch_lat)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, merch_lat > 
+                      (Q[1] - 1.5*iqr) & merch_lat < (Q[2]+1.5*iqr))
+#lat
+Q <- quantile(train$lat, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$lat)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, lat > 
+                      (Q[1] - 1.5*iqr) & lat < (Q[2]+1.5*iqr))
+#amt
+Q <- quantile(train$amt, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$amt)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, amt > 
+                      (Q[1] - 1.5*iqr) & amt < (Q[2]+1.5*iqr))
+#dob
+Q <- quantile(train$dob, probs=c(.25, .75), na.rm = FALSE)
+iqr <- IQR(train$dob)
+up <-  Q[2]+1.5*iqr # Upper Range  
+low<- Q[1]-1.5*iqr # Lower Range﻿
+
+eliminated<- subset(train, dob > 
+                      (Q[1] - 1.5*iqr) & dob < (Q[2]+1.5*iqr))
+#Error not defined for "Date" Objects
+
+#Factor Collapsing
+train$job_c<-fct_collapse(train$job,
+                            Accountant=c("Accountant, chartered public finance", "Chartered public finance accountant",
+                                         "Accountant, chartered certified", "Chartered accountant", "Accountant, chartered"),
+                            Therapist=c("Dance movement psychotherapist","Therapist, occupational", "Physiotherapist",
+                                        "Child psychotherapist", "Therapist, horticultural", "Therapist, sports", 
+                                        "Therapist, occupational", "Phytotherapist", "Psychotherapist, child", "Physiotherapist", 
+                                        "Art therapist", "Music therapist", "Occupational therapist", "Therapist, sports",
+                                        "Horticultural therapist", "Therapist, drama", "Therapist, art", "Nutritional therapist"),
+                            Psychologist=c("Psychologist, counselling","Forensic psychologist","Psychologist, forensic", 
+                                           "Educational psychologist", "Counselling psychologist", "Occupational psychologist", 
+                                           "Psychologist, sport and exercise", "Clinical psychologist", "Psychologist, clinical", 
+                                           "Sport and exercise psychologist"),
+                            Administrator=c("Administrator, education","Administrator, charities/voluntary organisations", 
+                                            "Database administrator", "Administrator", "Administrator, local government", 
+                                            "Secretary/administrator", "Education administrator" , "Civil Service administrator", 
+                                            "Sports administrator", "Administrator, arts"))
+
 
