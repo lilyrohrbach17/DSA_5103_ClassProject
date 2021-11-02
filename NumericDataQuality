@@ -1,0 +1,46 @@
+library(dplyr)
+library(knitr)
+library(tidyverse)
+
+#setwd("C:/Users/lilyr/Desktop")
+Train<-read.csv("fraudTrain.csv")
+Test<-read.csv("fraudTest.csv")
+#View(Train)
+#View(Test)
+
+Train_Numeric<-dplyr::select(Train,(is.numeric))
+as_tibble(Train_Numeric)
+
+Test_Numeric<-dplyr::select(Test,(is.numeric))
+as_tibble(Test_Numeric)
+
+Q1<-function(x,na.rm=TRUE){
+  quantile(x,na.rm=na.rm)[2]
+}
+
+Q3<-function(x,na.rm=TRUE){
+  quantile(x,na.rm)[4]
+}
+
+numSum<-function(x){
+  c(length(x),n_distinct(x),sum(is.na(x)),mean(x,na.rm=TRUE),
+    min(x,na.rm=TRUE),Q1(x,na.rm=TRUE),median(x,na.rm=TRUE),
+    Q3(x,na.rm=TRUE),max(x,na.rm=TRUE),sd(x,na.rm=TRUE))
+}
+
+myNumSum<-Train_Numeric%>%
+  dplyr::summarize(across(everything(),numSum))
+
+myNumSum<-cbind(stat=c("n","unique","missing","mean","min",
+                       "Q1","median","Q3","max","sd"),myNumSum)
+glimpse(myNumSum)
+
+numSumFinal<-myNumSum %>%
+  pivot_longer("X":"is_fraud",names_to="variable",values_to="value")%>%
+  pivot_wider(names_from=stat,values_from=value)%>%
+  mutate(missing_pct=100*missing/n,
+         unique_pct=100*unique/n)%>%
+  select(variable,n,missing,missing_pct,unique,unique_pct,everything())
+options(digits=3)
+options(scipen=99)
+numSumFinal%>%kable()
