@@ -222,3 +222,41 @@ train$job<-fct_collapse(train$job,
                                       "Primary school teacher", "Secondary school teacher", "Teacher, secondary school", 
                                       "Teacher, special educational needs", "Early years teacher", "Private music teacher", 
                                       "Teacher, primary school", "TEFL teacher", "Teacher, adult education"))
+
+#GLM model
+GLMfit <- glm(data=train,is_fraud ~ job + merch_lat + 
+             merch_long + lat + long + amt + dob, family="binomial")
+
+summary(GLMfit, style="pmax")
+
+
+GLMTarget<-predict(fit,Test)
+
+#LM Model
+LMfit <- lm(data=train,is_fraud ~ job + merch_lat + 
+                merch_long + lat + long + amt + dob)
+
+summary(LMfit, style="pmax")
+
+
+LMTarget<-predict(LMfit,Test)
+
+#PCR Model
+PCRfit <- plsr(data=train,is_fraud ~ job + merch_lat + 
+                 merch_long + lat + long + amt + dob, scale=TRUE, validation="CV")
+
+summary(PCRfit, style="pmax")
+
+
+PCRTarget<-predict(PCRfit,Test)
+
+#Random Forest Model
+RFfit<- randomForest(data=train,is_fraud ~ job + merch_lat + 
+                       merch_long + lat + long + amt + dob,
+                  importance=TRUE,
+                  prOximity=TRUE,
+                  na.action=na.omit)
+summary(RFfit, style="pmax")
+
+
+RFTarget<-predict(RFfit,Test)
