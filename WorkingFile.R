@@ -17,6 +17,17 @@ library(outliers)
 train <- read_csv('fraudTrain.csv')
 test <- read_csv('fraudTest.csv')
 
+# Remove 50% of train data
+newtrain = train %>% 
+    group_by(is_fraud) %>% 
+    sample_frac(size = 0.5)
+
+# Remove 50% of test data
+newtest = test %>% 
+    group_by(is_fraud) %>% 
+    sample_frac(size = 0.5)
+
+
 attach(train)
 
 #Creat a subset of train that only has numeric columns
