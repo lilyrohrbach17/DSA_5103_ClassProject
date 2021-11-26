@@ -235,41 +235,117 @@ train$job<-fct_collapse(train$job,
                                       "Primary school teacher", "Secondary school teacher", "Teacher, secondary school", 
                                       "Teacher, special educational needs", "Early years teacher", "Private music teacher", 
                                       "Teacher, primary school", "TEFL teacher", "Teacher, adult education"))
-
+Full<-train%>%rbind(test)
 #GLM model
-GLMfit <- glm(data=train,is_fraud ~ job + merch_lat + 
-             merch_long + lat + long + amt + dob, family="binomial")
+GLMfit <- glm(data=Full,is_fraud ~ job + merch_lat + 
+                merch_long + lat + long + amt + dob, family="binomial")
 
 summary(GLMfit, style="pmax")
 
 
-GLMTarget<-predict(fit,Test)
+GLMTarget<-predict(GLMfit,test)
+GLMdf<-aggregate(GLMTarget, by= list(test$trans_num),first)
+GLMdf<-GLMdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(LMdf,"GLMPredictions.csv")
 
 #LM Model
-LMfit <- lm(data=train,is_fraud ~ job + merch_lat + 
-                merch_long + lat + long + amt + dob)
+LMfit <- lm(data=Full,is_fraud ~ job + merch_lat + 
+              merch_long + lat + long + amt + dob)
 
 summary(LMfit, style="pmax")
 
-
-LMTarget<-predict(LMfit,Test)
+LMTarget<-predict(LMfit,test)
+LMdf<-aggregate(LMTarget, by= list(test$trans_num),first)
+LMdf<-LMdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(LMdf,"LMPredictions.csv")
 
 #PCR Model
-PCRfit <- plsr(data=train,is_fraud ~ job + merch_lat + 
+PCRfit <- plsr(data=Full,is_fraud ~ job + merch_lat + 
                  merch_long + lat + long + amt + dob, scale=TRUE, validation="CV")
 
 summary(PCRfit, style="pmax")
 
 
-PCRTarget<-predict(PCRfit,Test)
+PCRTarget<-predict(PCRfit,test)
+PCRdf<-aggregate(PCRTarget, by= list(test$trans_num),first)
+PCRdf<-PCRdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(PCRdf,"PCRPredictions.csv")
+
 
 #Random Forest Model
-RFfit<- randomForest(data=train,is_fraud ~ job + merch_lat + 
+RFfit<- randomForest(data=Full,is_fraud ~ + merch_lat + 
                        merch_long + lat + long + amt + dob,
-                  importance=TRUE,
-                  prOximity=TRUE,
-                  na.action=na.omit)
+                     importance=TRUE,
+                     prOximity=TRUE,
+                     na.action=na.omit)
 summary(RFfit, style="pmax")
 
 
-RFTarget<-predict(RFfit,Test)
+RFTarget<-predict(RFfit,test)
+RFdf<-aggregate(RFTarget, by= list(test$trans_num),first)
+RFdf<-RFdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(RFdf,"RandomForestsPredictions.csv")
+
+#MARS Model
+Mfit<- earth(is_fraud ~ job + merch_lat + merch_long + lat + 
+               long + amt + dob,data=Full)
+summary(Mfit, style="pmax")
+
+
+MTarget<-predict(Mfit,test)
+Mdf<-aggregate(MTarget, by= list(test$trans_num),first)
+Mdf<-Mdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(Mdf,"MARSPredictions.csv")
+
+#Ridge Regression Model
+
+# Possible ranges of lambda
+lambda <- 10^seq(-10, 10, length.out = 200)
+
+# Implement ridge regression with 5-fold cv and alpha=0
+Ridgefit <- train(is_fraud ~ job + merch_lat + 
+                      merch_long + lat + long + amt + dob, data=Full,
+                    preProcess=c("center", "scale"), method="glmnet", 
+                    metric="RMSE", na.action=na.omit,
+                    tuneGrid=expand.grid(alpha=0, lambda=lambda),
+                    trControl=trainControl(method="cv", number=5))
+
+Ridgefit$bestTune 
+Ridgefit$results %>% filter(lambda == Ridgefit$bestTune$lambda)
+
+round(coef(Ridgefit$finalModel, Ridgefit$bestTune$lambda),3)
+Ridgefit$bestTune$lambda
+summary(Ridgefit, style="pmax")
+Ridgefit
+
+RidgeTarget<-predict(Ridgefit,test)
+Ridgedf<-aggregate(RidgeTarget, by= list(test$trans_num),first)
+Ridgedf<-Ridgedf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(Ridgedf,"RidgePredictions.csv")
+
+#LASSO model
+cvSpecification <- trainControl(method="cv", number=5,
+                                savePredictions="all")
+
+# Create vector of potential lambda values
+Llambda <- 10^seq(5, -5, length=200)
+LASSOfit <- train(is_fraud ~ merch_lat + 
+                    merch_long + lat + long + amt + dob, data=Full,
+                  preProcess=c("center", "scale"),
+                  method="lasso", 
+                  metric="RMSE",
+                  trControl=cvSpecification,
+                  na.action=na.omit)
+
+# Best/optimal tuning hyperparameters (alpha, lambda)
+LASSOfit$bestTune        # best tune 
+LASSOfit$bestTune$Llambda
+LASSOfit$results %>% filter(Llambda == LASSOfit$bestTune$Llambda)
+
+summary(LASSOfit, style="pmax")
+RMSE(Train$totRevenue, LASSOfit$residuals)
+
+LASSOTarget<-predict(LASSOfit,Test)
+LASSOdf<-aggregate(LASSOTarget, by= list(test$trans_num),first)
+LASSOdf<-LASSOdf %>% mutate_if(is.numeric, ~ceiling(.))
+write.csv(LASSOdf,"LASSOPredictions.csv")
