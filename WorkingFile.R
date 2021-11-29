@@ -29,12 +29,12 @@ test <- read_csv('fraudTest.csv')
 # Remove % of test data
 newtrain = train %>% 
   group_by(is_fraud) %>% 
-  sample_frac(size = 0.01)
+  sample_frac(size = 0.001)
 
 # Remove % of test data
 newtest = test %>% 
   group_by(is_fraud) %>% 
-  sample_frac(size = 0.01)
+  sample_frac(size = 0.001)
 
 test<-newtest
 train<-newtrain
