@@ -13,6 +13,15 @@ library(caret)
 library(MASS)
 library(HSAUR2)
 library(outliers)
+library(pls)
+library(randomForest)
+library(earth)
+library(cluster)    #provides more cluster algorithms than base R (e.g. PAM)
+library(useful)     #provides a plot function for clusters and "FitKMeans" and "PlotHartigan" functions
+library(NbClust)    #provides tons of tools for identifying the "right" number of clusters
+library(rgl)        #for 3D rotating plots
+library(fpc)
+
 
 train <- read_csv('fraudTrain.csv')
 test <- read_csv('fraudTest.csv')
@@ -20,12 +29,12 @@ test <- read_csv('fraudTest.csv')
 # Remove % of test data
 newtrain = train %>% 
   group_by(is_fraud) %>% 
-  sample_frac(size = 0.001)
+  sample_frac(size = 0.01)
 
 # Remove % of test data
 newtest = test %>% 
   group_by(is_fraud) %>% 
-  sample_frac(size = 0.001)
+  sample_frac(size = 0.01)
 
 test<-newtest
 train<-newtrain
@@ -35,7 +44,7 @@ attach(train)
 #Creat a subset of train that only has numeric columns
 num_cols <- unlist(lapply(train, is.numeric)) 
 numericTrain <- train[ , num_cols]
- 
+
 #Create matrix of correlations for the numeric variables in the
 #data set.
 corMat = cor(numericTrain)
@@ -132,6 +141,119 @@ ggplot(train, aes(x = merch_long, y = long, color = is_fraud)) +
 #Similar longitudes between the customer and the merchant for
 #fraud and real transactions with some lower outliers
 
+#Clustering
+#k-means
+
+
+#Scale the data..
+hScaled<-scale(numericTrain)  #default is mean centering with scaling by standard deviation
+
+
+#kmeans is a function in the standard R package "stats"
+hKM <- kmeans(numericTrain,3, nstart=10)          
+
+#note above: nstart=10   -- this performs the clustering 10 times with 10 different initial
+#seeds; the clustering result with the minimum error is kept.
+
+
+#we can take a look at the cluster results
+hKM$centers  # the centroids of the final clusers (remember, these are scaled)
+
+hKM$size #and the size of each cluster
+
+#create our own plot function to look for "Within cluster Sum of square error 'elbow' plot"
+#defaults to 15 as clusters max
+
+wssplot <- function(numericTrain, nc=15){                    
+  
+  par(mfrow=c(1,2))
+  
+  wss <- NULL  
+  pctExp <-NULL
+  
+  for (k in 1:nc)
+  {
+    kclus <- kmeans(numericTrain, centers=k)
+    wss[k] <- kclus$tot.withinss      #store the total within SSE for given k
+    pctExp[k] <- 1-wss[k]/kclus$totss
+  }
+  
+  plot(1:nc, wss, type="b", xlab="Number of Clusters",
+       ylab="Within groups sum of squares")
+  
+  plot(1:nc, pctExp, type="b", xlab="Number of Clusters",
+       ylab="Pct Explained")
+  
+  par(mfrow=c(1,1))
+}
+par(mar=c(1,1,1,1))
+wssplot(hScaled,nc=30)
+
+# "Hartigan's rule is one statistical technique to "find" the elbow
+clusFit<-FitKMeans(numericTrain,max.clusters=30,nstart=20)   #evaluates k using the "Hartigan" rule
+clusFit
+PlotHartigan(clusFit)
+
+
+#Hierarchical
+
+#NOTE: the 'daisy" function in package "cluster" can handle mixed data for distances using the Gower's Distance method
+#e.g.  d<-daisy(mtcars,stand=T)  
+
+h<-daisy(numericTrain,stand=T)
+
+#different distance functions will produce different results
+
+
+
+dev.off()
+
+
+#look at the different shapes of dendrograms based on the linkage techniques
+
+hclus<-hclust(h,method="single")   #notice the long chains (e.g., very unbalanced)
+plot(hclus)
+
+hclus<-hclust(h,method="complete")
+plot(hclus)
+
+hclus<-hclust(h,method="average")
+plot(hclus)
+
+hclus<-hclust(h,method="ward")  # notice how balanced the clusters are
+plot(hclus)
+par(mfrow=c(3,2))
+
+#dbscan
+
+# Fitting DBScan clustering Model 
+# to training dataset
+set.seed(220)  # Setting seed
+Dbscan_cl <- dbscan(numericTrain, eps = 0.45, MinPts = 5)
+Dbscan_cl
+
+# Checking cluster
+Dbscan_cl$cluster
+
+# Table
+table(Dbscan_cl$cluster,numericTrain$long)
+
+# Plotting Cluster
+
+par(mfrow=c(3,5))
+plot(Dbscan_cl, numericTrain$cc_num, main = 'cc_num')
+plot(Dbscan_cl, numericTrain$amt, main = 'amt') 
+plot(Dbscan_cl, numericTrain$zip, main = 'zip') 
+plot(Dbscan_cl, numericTrain$lat, main = 'lat') 
+plot(Dbscan_cl, numericTrain$long, main = 'long') 
+plot(Dbscan_cl, numericTrain$city_pop, main = 'city_pop') 
+plot(Dbscan_cl, numericTrain$unix_time, main = 'unix_time')
+plot(Dbscan_cl, numericTrain$merch_lat, main = 'merch_lat')
+plot(Dbscan_cl, numericTrain$merch_long, main = 'merch_long') 
+plot(Dbscan_cl, numericTrain$is_fraud, main = 'is_fraud') 
+
+
+
 #Outlier elimination
 #merch_long
 Q <- quantile(train$merch_long, probs=c(.25, .75), na.rm = FALSE)
@@ -185,56 +307,56 @@ eliminated<- subset(train, dob >
 
 #Factor Collapsing
 train$job<-fct_collapse(train$job,
-                          Accountant=c("Accountant, chartered public finance", "Chartered public finance accountant",
-                                       "Accountant, chartered certified", "Chartered accountant", "Accountant, chartered"),
-                          Therapist=c("Dance movement psychotherapist","Therapist, occupational", "Physiotherapist",
-                                      "Child psychotherapist", "Therapist, horticultural", "Therapist, sports", 
-                                      "Therapist, occupational", "Phytotherapist", "Psychotherapist, child", "Physiotherapist", 
-                                      "Art therapist", "Music therapist", "Occupational therapist", "Therapist, sports",
-                                      "Horticultural therapist", "Therapist, drama", "Therapist, art", "Nutritional therapist"),
-                          Psychologist=c("Psychologist, counselling","Forensic psychologist","Psychologist, forensic", 
-                                         "Educational psychologist", "Counselling psychologist", "Occupational psychologist", 
-                                         "Psychologist, sport and exercise", "Clinical psychologist", "Psychologist, clinical", 
-                                         "Sport and exercise psychologist"),
-                          Administrator=c("Administrator, education","Administrator, charities/voluntary organisations", 
-                                          "Database administrator", "Administrator", "Administrator, local government", 
-                                          "Secretary/administrator", "Education administrator" , "Civil Service administrator", 
-                                          "Sports administrator", "Administrator, arts"),
-                          Designer = c("Designer, multimedia", "Designer, jewellery", "Product designer", 
-                                       "Exhibition designer", "Designer, ceramics/pottery", 
-                                       "Designer, interior/spatial", "Jewellery designer", 
-                                       "Designer, industrial/product", "Industrial/product designer", 
-                                       "Ceramics designer",  "Web designer", "Designer, furniture",
-                                       "Furniture designer", "Interior and spatial designer", 
-                                       "Designer, exhibition/display", "Textile designer", 
-                                       "Designer, television/film set", "Designer, textile", 
-                                       "Glass blower/designer"), 
-                          Engineer = c("Engineer, land", "Energy engineer", 'Network engineer', 
-                                       "Building services engineer", "Electrical engineer", "Engineer, technical sales", 
-                                       "Engineer, electronics", "Water engineer", "Geologist, engineering", 
-                                       "Engineer, broadcasting (operations)", "Engineer, biomedical", 
-                                       "Engineering geologist", "Mining engineer", "Engineer, communications", 
-                                       "Materials engineer", "Engineer, structural", "Structural engineer", 
-                                       "Mechanical engineer", "Electronics engineer", "Chemical engineer", 
-                                       "Engineer, building services", "Engineer, mining", "Control and instrumentation engineer", 
-                                       "Engineer, control and instrumentation", "Engineer, maintenance", 
-                                       "Engineer, production", "Manufacturing engineer", "Production engineer", 
-                                       "Engineer, drilling", "Engineer, petroleum", "Civil engineer, contracting", 
-                                       "Engineer, agricultural", "Engineer, manufacturing", "Engineer, automotive", 
-                                       "Site engineer", "Manufacturing systems engineer", "Petroleum engineer"), 
-                          Scientist = c("Scientist, research (maths)", "Product/process development scientist", 
-                                        "Research scientist (physical sciences)", "Audiological scientist", 
-                                        "Scientist, audiological", "Physiological scientist", "Scientist, marine", 
-                                        "Research scientist (life sciences)", "Water quality scientist", 
-                                        "Scientist, physiological", "Scientist, biomedical", "Geoscientist", 
-                                        "Soil scientist", "Data scientist", "Scientist, research (medical)", 
-                                        "Scientist, clinical (histocompatibility and immunogenetics)", 
-                                        "Research scientist (medical)"), 
-                          Teacher = c("Special educational needs teacher", "English as a second language teacher", 
-                                      "Teacher, English as a foreign language", "Teacher, early years/pre", 
-                                      "Primary school teacher", "Secondary school teacher", "Teacher, secondary school", 
-                                      "Teacher, special educational needs", "Early years teacher", "Private music teacher", 
-                                      "Teacher, primary school", "TEFL teacher", "Teacher, adult education"))
+                        Accountant=c("Accountant, chartered public finance", "Chartered public finance accountant",
+                                     "Accountant, chartered certified", "Chartered accountant", "Accountant, chartered"),
+                        Therapist=c("Dance movement psychotherapist","Therapist, occupational", "Physiotherapist",
+                                    "Child psychotherapist", "Therapist, horticultural", "Therapist, sports", 
+                                    "Therapist, occupational", "Phytotherapist", "Psychotherapist, child", "Physiotherapist", 
+                                    "Art therapist", "Music therapist", "Occupational therapist", "Therapist, sports",
+                                    "Horticultural therapist", "Therapist, drama", "Therapist, art", "Nutritional therapist"),
+                        Psychologist=c("Psychologist, counselling","Forensic psychologist","Psychologist, forensic", 
+                                       "Educational psychologist", "Counselling psychologist", "Occupational psychologist", 
+                                       "Psychologist, sport and exercise", "Clinical psychologist", "Psychologist, clinical", 
+                                       "Sport and exercise psychologist"),
+                        Administrator=c("Administrator, education","Administrator, charities/voluntary organisations", 
+                                        "Database administrator", "Administrator", "Administrator, local government", 
+                                        "Secretary/administrator", "Education administrator" , "Civil Service administrator", 
+                                        "Sports administrator", "Administrator, arts"),
+                        Designer = c("Designer, multimedia", "Designer, jewellery", "Product designer", 
+                                     "Exhibition designer", "Designer, ceramics/pottery", 
+                                     "Designer, interior/spatial", "Jewellery designer", 
+                                     "Designer, industrial/product", "Industrial/product designer", 
+                                     "Ceramics designer",  "Web designer", "Designer, furniture",
+                                     "Furniture designer", "Interior and spatial designer", 
+                                     "Designer, exhibition/display", "Textile designer", 
+                                     "Designer, television/film set", "Designer, textile", 
+                                     "Glass blower/designer"), 
+                        Engineer = c("Engineer, land", "Energy engineer", 'Network engineer', 
+                                     "Building services engineer", "Electrical engineer", "Engineer, technical sales", 
+                                     "Engineer, electronics", "Water engineer", "Geologist, engineering", 
+                                     "Engineer, broadcasting (operations)", "Engineer, biomedical", 
+                                     "Engineering geologist", "Mining engineer", "Engineer, communications", 
+                                     "Materials engineer", "Engineer, structural", "Structural engineer", 
+                                     "Mechanical engineer", "Electronics engineer", "Chemical engineer", 
+                                     "Engineer, building services", "Engineer, mining", "Control and instrumentation engineer", 
+                                     "Engineer, control and instrumentation", "Engineer, maintenance", 
+                                     "Engineer, production", "Manufacturing engineer", "Production engineer", 
+                                     "Engineer, drilling", "Engineer, petroleum", "Civil engineer, contracting", 
+                                     "Engineer, agricultural", "Engineer, manufacturing", "Engineer, automotive", 
+                                     "Site engineer", "Manufacturing systems engineer", "Petroleum engineer"), 
+                        Scientist = c("Scientist, research (maths)", "Product/process development scientist", 
+                                      "Research scientist (physical sciences)", "Audiological scientist", 
+                                      "Scientist, audiological", "Physiological scientist", "Scientist, marine", 
+                                      "Research scientist (life sciences)", "Water quality scientist", 
+                                      "Scientist, physiological", "Scientist, biomedical", "Geoscientist", 
+                                      "Soil scientist", "Data scientist", "Scientist, research (medical)", 
+                                      "Scientist, clinical (histocompatibility and immunogenetics)", 
+                                      "Research scientist (medical)"), 
+                        Teacher = c("Special educational needs teacher", "English as a second language teacher", 
+                                    "Teacher, English as a foreign language", "Teacher, early years/pre", 
+                                    "Primary school teacher", "Secondary school teacher", "Teacher, secondary school", 
+                                    "Teacher, special educational needs", "Early years teacher", "Private music teacher", 
+                                    "Teacher, primary school", "TEFL teacher", "Teacher, adult education"))
 Full<-train%>%rbind(test)
 #GLM model
 GLMfit <- glm(data=Full,is_fraud ~ job + merch_lat + 
@@ -246,7 +368,7 @@ summary(GLMfit, style="pmax")
 GLMTarget<-predict(GLMfit,test)
 GLMdf<-aggregate(GLMTarget, by= list(test$trans_num),first)
 GLMdf<-GLMdf %>% mutate_if(is.numeric, ~ceiling(.))
-write.csv(LMdf,"GLMPredictions.csv")
+write.csv(GLMdf,"GLMPredictions.csv")
 
 #LM Model
 LMfit <- lm(data=Full,is_fraud ~ job + merch_lat + 
@@ -260,7 +382,7 @@ LMdf<-LMdf %>% mutate_if(is.numeric, ~ceiling(.))
 write.csv(LMdf,"LMPredictions.csv")
 
 #PCR Model
-PCRfit <- plsr(data=Full,is_fraud ~ job + merch_lat + 
+PCRfit <- plsr(data=Full,is_fraud ~ merch_lat + 
                  merch_long + lat + long + amt + dob, scale=TRUE, validation="CV")
 
 summary(PCRfit, style="pmax")
@@ -273,7 +395,7 @@ write.csv(PCRdf,"PCRPredictions.csv")
 
 
 #Random Forest Model
-RFfit<- randomForest(data=Full,is_fraud ~ + merch_lat + 
+RFfit<- randomForest(data=Full,is_fraud ~ job + merch_lat + 
                        merch_long + lat + long + amt + dob,
                      importance=TRUE,
                      prOximity=TRUE,
@@ -304,11 +426,11 @@ lambda <- 10^seq(-10, 10, length.out = 200)
 
 # Implement ridge regression with 5-fold cv and alpha=0
 Ridgefit <- train(is_fraud ~ job + merch_lat + 
-                      merch_long + lat + long + amt + dob, data=Full,
-                    preProcess=c("center", "scale"), method="glmnet", 
-                    metric="RMSE", na.action=na.omit,
-                    tuneGrid=expand.grid(alpha=0, lambda=lambda),
-                    trControl=trainControl(method="cv", number=5))
+                    merch_long + lat + long + amt + dob, data=Full,
+                  preProcess=c("center", "scale"), method="glmnet", 
+                  metric="RMSE", na.action=na.omit,
+                  tuneGrid=expand.grid(alpha=0, lambda=lambda),
+                  trControl=trainControl(method="cv", number=5))
 
 Ridgefit$bestTune 
 Ridgefit$results %>% filter(lambda == Ridgefit$bestTune$lambda)
